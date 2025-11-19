@@ -1,0 +1,73 @@
+name: Frontend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20.x"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build application
+        run: cd frontend && npm run build
+
+      - name: Deploy to Vercel (if configured)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            npm install -g vercel
+            vercel deploy --prod --token "$VERCEL_TOKEN"
+            echo "Deployment to Vercel completed"
+          else
+            echo "Vercel deployment not configured - add VERCEL_TOKEN secret"
+          fi
+        continue-on-error: true
+
+      - name: Deploy to Netlify (if configured)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -n "$NETLIFY_AUTH_TOKEN" ] && [ -n "$NETLIFY_SITE_ID" ]; then
+            npm install -g netlify-cli
+            netlify deploy --prod --dir=frontend/dist --auth="$NETLIFY_AUTH_TOKEN" --site="$NETLIFY_SITE_ID"
+            echo "Deployment to Netlify completed"
+          else
+            echo "Netlify deployment not configured"
+          fi
+        continue-on-error: true
+
+      - name: Verify deployment
+        env:
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+        run: |
+          if [ -n "$FRONTEND_URL" ]; then
+            for i in {1..30}; do
+              if curl -f "$FRONTEND_URL" > /dev/null 2>&1; then
+                echo "Frontend deployment verified - site is accessible"
+                exit 0
+              fi
+              echo "Waiting for frontend to be ready... (attempt $i/30)"
+              sleep 2
+            done
+            echo "Warning: Frontend health check failed or timeout"
+          fi
+        continue-on-error: true

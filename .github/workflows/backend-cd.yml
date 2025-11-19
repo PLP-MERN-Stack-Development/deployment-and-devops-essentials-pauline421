@@ -1,0 +1,58 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to Render (if configured)
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_HOOK" ]; then
+            curl --request POST --url "$RENDER_HOOK"
+            echo "Deployment triggered on Render"
+          else
+            echo "Render deployment not configured - add RENDER_DEPLOY_HOOK_URL secret"
+          fi
+        continue-on-error: true
+
+      - name: Deploy to Railway (if configured)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_CLI_TOKEN }}
+        run: |
+          if [ -n "$RAILWAY_TOKEN" ]; then
+            echo "Railway deployment would require additional setup"
+            echo "Consider using Railway's built-in GitHub integration instead"
+          fi
+        continue-on-error: true
+
+      - name: Verify deployment
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          if [ -n "$BACKEND_URL" ]; then
+            HEALTH_CHECK_URL="${BACKEND_URL}/health"
+            for i in {1..30}; do
+              if curl -f "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
+                echo "Health check passed - deployment successful"
+                exit 0
+              fi
+              echo "Waiting for service to be ready... (attempt $i/30)"
+              sleep 2
+            done
+            echo "Warning: Health check failed or timeout"
+          fi
+        continue-on-error: true

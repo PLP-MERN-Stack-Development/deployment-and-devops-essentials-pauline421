@@ -1,0 +1,24 @@
+# Example Render blueprint for a MERN backend service
+# Reference: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: mern-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build --if-present
+    startCommand: npm start
+    autoDeploy: true
+    rootDir: backend
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://your-frontend-domain

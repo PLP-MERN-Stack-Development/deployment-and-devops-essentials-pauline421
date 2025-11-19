@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "frontend/package.json", "use": "@vercel/next" },
+    { "src": "frontend/vite.config.*", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
+    { "src": "frontend/package.json", "use": "@vercel/static-build", "config": { "distDir": "build" } }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "https://your-backend-domain/api/$1" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
